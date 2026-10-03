@@ -1,0 +1,21 @@
+[package]
+name = "gh-relay"
+version = "0.1.0"
+edition = "2021"
+description = "Run local coding agents from GitHub labels"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+fs2 = "0.4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
