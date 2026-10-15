@@ -1,8 +1,8 @@
 # gh-relay
 
-Run local coding agents from GitHub PR labels. Written in Rust; agent authentication stays with the agent CLI. No AI API client or self-hosted Actions runner is required.
+Run local coding agents from GitHub PR and issue labels. Written in Rust; agent authentication stays with the agent CLI. No AI API client or self-hosted Actions runner is required.
 
-**v0.1 supports reviews with Codex, Claude Code and GitHub Copilot CLI.** Automatic edits, issue implementation, LSP analysis, service installation and multiple repositories are future work.
+**v0.1 supports PR review, issue research and issue implementation with Codex, Claude Code and GitHub Copilot CLI.** LSP analysis, service installation and multiple repositories are future work.
 
 ## Install from source
 
@@ -26,13 +26,15 @@ gh relay init
 gh relay start
 ```
 
-Apply `codex:review`, `claude:review` or `copilot:review` to an open PR. The foreground process creates a detached worktree at the exact PR head, runs the selected local CLI and posts a comment. Ctrl-C stops the worker and webhook forwarder. GitHub's webhook forwarder is intended for development/testing, not a production delivery service. Keep your Mac awake for immediate responses.
+Apply `codex:review`, `claude:review` or `copilot:review` to an open PR, or `codex:research`/`codex:impl`-style labels (see below) to an open issue. The foreground process creates a detached worktree, runs the selected local CLI and delivers the result. Ctrl-C stops the worker and webhook forwarder. GitHub's webhook forwarder is intended for development/testing, not a production delivery service. Keep your Mac awake for immediate responses.
 
-A recovery scan runs at startup and every five minutes. It finds labels applied while the worker was disconnected. Only labels last applied by a collaborator with write/maintain/admin permission are eligible. A local lock prevents two workers sharing the same checkout; successful label/PR/head combinations are persisted under `.git/gh-relay/`. To request another automatic run at the same SHA, stop the worker and remove the corresponding JSON marker after inspecting `gh relay status`, or run manually.
+A recovery scan runs at startup and every five minutes, over both open PRs and open issues. It finds labels applied while the worker was disconnected. Only labels last applied by a collaborator with write/maintain/admin permission are eligible. A local lock prevents two workers sharing the same checkout; successful label/number/content combinations are persisted under `.git/gh-relay/`. To request another automatic run at the same content, stop the worker and remove the corresponding JSON marker after inspecting `gh relay status`, or run manually.
 
 ```sh
-gh relay run codex:review --pr 123        # print result only
+gh relay run codex:review --pr 123          # print result only
 gh relay run claude:review --pr 123 --post
+gh relay run codex:research --issue 45      # print result only
+gh relay run codex:impl --issue 45 --post   # pushes a branch and opens a draft PR
 gh relay status
 ```
 
@@ -40,7 +42,7 @@ gh relay status
 
 ## Configuration
 
-`.github/gh-relay.yml` is read from the local checkout when the process starts, never from the PR head. Fetch and inspect configuration changes before restarting.
+`.github/gh-relay.yml` is read from the local checkout when the process starts, never from the PR head or issue body. Fetch and inspect configuration changes before restarting.
 
 ```yaml
 version: 1
@@ -48,6 +50,7 @@ repo: owner/repository
 labels:
   codex:review:
     agent: codex
+    kind: review # default; reads a PR diff, posts a PR comment
     prompt: |
       Review bugs, regressions and unnecessary complexity.
       Explain user-facing impact and cite paths and lines.
@@ -58,17 +61,41 @@ labels:
   copilot:review:
     agent: copilot
     prompt: Review actionable bugs and regressions.
+  claude:research:
+    agent: claude
+    kind: research # read-only; investigates an issue, posts an issue comment
+    prompt: Investigate this issue against the current codebase and summarize findings.
+  claude:impl:
+    agent: claude
+    kind: impl # write-capable; implements an issue, pushes a branch, opens a draft PR
+    prompt: Implement what this issue asks for.
 ```
 
-The label names are arbitrary configuration keys. Agent-specific arguments stay in the Rust adapters. No credentials are stored by gh-relay. Installed CLI versions must support the adapter flags; `doctor` prints versions but does not establish agent authentication or capability compatibility. A failed agent invocation fails the job without posting an empty review.
+The label names are arbitrary configuration keys. Agent-specific arguments stay in the Rust adapters. No credentials are stored by gh-relay. Installed CLI versions must support the adapter flags; `doctor` prints versions but does not establish agent authentication or capability compatibility. A failed agent invocation fails the job without posting an empty review or comment. `gh relay init` only scaffolds `review` labels; add `research`/`impl` labels by hand and re-read the execution boundaries below first, since `impl` grants write access.
+
+## Issue-triggered `research` and `impl`
+
+`research` mirrors `review`'s read-only posture but targets an issue instead of a PR: it checks out the repository's default branch, gives the agent read-only access to investigate the issue against the current codebase, and posts the result as an issue comment.
+
+`impl` grants the agent write access to implement the issue, then gh-relay itself (not the agent) commits the changes, pushes a `gh-relay/issue-<number>` branch and opens a **draft** PR referencing the issue (`#<number>`, never an auto-closing keyword — a human decides whether to merge and close it). Nothing is pushed unless `--post` is passed; without it, you get a preview of the agent's summary and changed files only.
+
+Because an issue's body can be written by anyone who can open an issue, `impl` requires **both** the collaborator who applied the label **and** the issue's author to have write/maintain/admin permission on the repository, narrowing who can get write-capable agent execution to run over content they influence. `research` only requires the former, matching `review`.
+
+Write-capable execution differs per adapter:
+
+- **Claude** keeps Edit/Write pre-approved and Bash available, but Bash calls are only allowed when the target repository's own committed `.claude/settings.json` (`--setting-sources project`, so your personal/global settings are never consulted) already permits them; anything else is denied automatically (`--permission-prompts none`). MCP stays disabled, as in `review`.
+- **Codex** runs with `--sandbox workspace-write` instead of `--sandbox read-only`.
+- **Copilot** gets its `write` tool enabled; `shell` stays denied.
+
+Issues have no SHA to pin to, so gh-relay hashes the title and body it read when the label was applied and re-checks that hash (and that the issue is still open) immediately before posting a comment or pushing a branch, aborting if either changed in the meantime.
 
 ## Execution boundaries and limits
 
-Use v0.1 with repositories and contributors you trust. Worktrees isolate files from your current checkout; they are not an OS security boundary. CLI/project settings and extensions can affect an agent's behavior. Codex requests its read-only sandbox. Claude gets Read/Grep/Glob only with an empty MCP configuration. Copilot gets view/grep/glob, with shell/write denied. Tool restrictions are not interchangeable with filesystem sandboxes.
+Use v0.1 with repositories and contributors you trust — `impl`'s write access makes this more important, not less. Worktrees isolate files from your current checkout; they are not an OS security boundary. CLI/project settings and extensions can affect an agent's behavior. For `review` and `research`, Codex requests its read-only sandbox, Claude gets Read/Grep/Glob only with an empty MCP configuration, and Copilot gets view/grep/glob with shell/write denied; `impl`'s write-capable adapters are described above. Tool restrictions are not interchangeable with filesystem sandboxes. A repository's own `.claude/settings.json` governs what Claude's `impl` runs can do with Bash; review it like any other trusted configuration before enabling `impl` labels.
 
-No project builds, package installation or tests are run. The agent timeout is 30 minutes, GitHub/git command timeout is two minutes. Diffs above 60 KB and comments above 60 KB are rejected. The worker processes jobs serially. Busy webhook requests receive HTTP 503 and are recovered through the periodic scan. Failed jobs retry on the next scan. A crash after posting and before recording completion can produce a duplicate comment; v0.1 does not promise exactly-once delivery. The localhost listener validates repository, current labels and the historical label actor through GitHub API; it must not be exposed publicly.
+No project builds, package installation or tests are run. The agent timeout is 30 minutes, GitHub/git command timeout is two minutes. Diffs, issue bodies, prompts, PR comments and issue comments above their documented size limits are rejected. The worker processes jobs serially. Busy webhook requests receive HTTP 503 and are recovered through the periodic scan. Failed jobs retry on the next scan. A crash after posting and before recording completion can produce a duplicate comment or, for `impl`, a duplicate branch/PR attempt (rejected since the branch already exists); v0.1 does not promise exactly-once delivery. The localhost listener validates repository, current labels and the historical label actor (and, for `impl`, the issue author) through GitHub API; it must not be exposed publicly.
 
-Review worktrees are removed after execution. An interrupted run may leave a worktree: inspect `git worktree list`, remove the abandoned worktree with `git worktree remove`, then retry. A newer PR SHA prevents posting a stale review. Multiple machines do not share deduplication state.
+Worktrees live under `.gh-relay-worktrees/` in the primary checkout, not under `.git/`: Claude Code classifies any path inside `.git/` as sensitive and silently denies writes there, which would break every `impl` run. Add `.gh-relay-worktrees/` to the target repository's own `.gitignore`. Worktrees are removed after execution. An interrupted run may leave one behind: inspect `git worktree list`, remove the abandoned worktree with `git worktree remove`, then retry. A newer PR SHA, or an issue edited after the label was applied, prevents delivering a stale result. Multiple machines do not share deduplication state.
 
 ## Develop
 
@@ -76,6 +103,8 @@ Review worktrees are removed after execution. An interrupted run may leave a wor
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test --locked
+python3 tests/smoke.py
+python3 tests/issue_smoke.py
 ```
 
 MIT licensed. Rust makes startup and idle overhead small; review latency is mostly agent inference and GitHub/network operations. No performance measurements are claimed.
