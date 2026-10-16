@@ -32,6 +32,27 @@ pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Bails unless `root` is a primary checkout (not a linked git worktree):
+/// commands that write to `.github/`, create branches or hold the worker
+/// lock all assume this.
+pub async fn require_primary_checkout(root: &Path) -> Result<()> {
+    let git_dir = output("git", &["rev-parse", "--absolute-git-dir"], root).await?;
+    if Path::new(git_dir.trim()) != root.join(".git") {
+        bail!("v0.1 requires a primary git checkout (not a linked worktree)");
+    }
+    Ok(())
+}
+
+/// The current repository's `owner/name`, as `gh` resolves it from the checkout's remote.
+pub async fn current_repo(root: &Path) -> Result<String> {
+    let repo: serde_json::Value =
+        serde_json::from_str(&gh(&["repo", "view", "--json", "nameWithOwner"], root).await?)?;
+    Ok(repo["nameWithOwner"]
+        .as_str()
+        .context("missing repository")?
+        .to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

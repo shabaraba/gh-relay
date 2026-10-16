@@ -1,0 +1,10 @@
+version: 1
+repo: __REPO__
+labels:
+  claude:review:
+    agent: claude
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+  claude:fix:
+    agent: claude
+    kind: fix
+    prompt: Address the PR's existing review comments and discussion, then push a fix.

@@ -1,6 +1,7 @@
 mod agent;
 mod config;
 mod daemon;
+mod fix;
 mod gh;
 mod implement;
 mod init;
@@ -8,6 +9,7 @@ mod issue;
 mod research;
 mod review;
 mod setup;
+mod template;
 mod webhook;
 mod worker;
 
@@ -17,13 +19,7 @@ use clap::{Parser, Subcommand};
 use config::Kind;
 use fs2::FileExt;
 use gh::{gh, output};
-use std::{
-    fs,
-    fs::OpenOptions,
-    path::{Path, PathBuf},
-    process::Stdio,
-    sync::Arc,
-};
+use std::{fs, fs::OpenOptions, path::PathBuf, process::Stdio, sync::Arc};
 use tokio::{process::Command, sync::Mutex, time::Duration};
 use worker::Worker;
 
@@ -41,6 +37,11 @@ enum Action {
     Init,
     /// Create a GitHub label for every workflow in .github/gh-relay.yml.
     Setup,
+    /// Bundled configuration templates for .github/gh-relay.yml.
+    Template {
+        #[command(subcommand)]
+        action: TemplateAction,
+    },
     /// Listen locally and forward GitHub webhook events. Ctrl-C stops both.
     Start {
         #[arg(long, default_value_t = 38741)]
@@ -54,7 +55,7 @@ enum Action {
     /// Run one workflow manually; posting is opt-in.
     Run {
         label: String,
-        /// Required for `review` labels.
+        /// Required for `review` and `fix` labels.
         #[arg(long, conflicts_with = "issue")]
         pr: Option<u64>,
         /// Required for `research` and `impl` labels.
@@ -67,6 +68,14 @@ enum Action {
     Doctor,
     /// Show persisted successful runs.
     Status,
+}
+
+#[derive(Subcommand)]
+enum TemplateAction {
+    /// List bundled templates.
+    List,
+    /// Write .github/gh-relay.yml from a template and create its labels.
+    Use { name: String },
 }
 
 #[tokio::main]
@@ -86,6 +95,12 @@ async fn main() -> Result<()> {
         }
         Action::Init => init::run(&root).await?,
         Action::Setup => setup::run(&root).await?,
+        Action::Template {
+            action: TemplateAction::List,
+        } => template::list(),
+        Action::Template {
+            action: TemplateAction::Use { name },
+        } => template::apply(&root, &name).await?,
         Action::Start { port, daemon: true } => daemon::start(&root, port).await?,
         Action::Stop => daemon::stop(&root)?,
         Action::Status => {
@@ -105,10 +120,7 @@ async fn main() -> Result<()> {
         }
         action => {
             let config = config::load(&root)?;
-            let git_dir = output("git", &["rev-parse", "--absolute-git-dir"], &root).await?;
-            if Path::new(git_dir.trim()) != root.join(".git") {
-                bail!("v0.1 requires a primary checkout");
-            }
+            gh::require_primary_checkout(&root).await?;
             let worker = Worker { root, config };
             fs::create_dir_all(worker.state())?;
             let lock = OpenOptions::new()
@@ -133,17 +145,17 @@ async fn main() -> Result<()> {
                         .context("unknown label")?
                         .kind;
                     match (kind, pr, issue) {
-                        (Kind::Review, Some(pr), None) => {
+                        (Kind::Review | Kind::Fix, Some(pr), None) => {
                             worker.run(&label, pr, post, false).await?
                         }
-                        (Kind::Review, None, _) => {
-                            bail!("label '{label}' is a review workflow; pass --pr")
+                        (Kind::Review | Kind::Fix, None, _) => {
+                            bail!("label '{label}' targets a pull request; pass --pr")
                         }
                         (Kind::Research | Kind::Impl, None, Some(issue)) => {
                             worker.run_issue(&label, issue, post, false).await?
                         }
                         (Kind::Research | Kind::Impl, _, None) => {
-                            bail!("label '{label}' is an issue workflow; pass --issue")
+                            bail!("label '{label}' targets an issue; pass --issue")
                         }
                         (_, Some(_), Some(_)) => unreachable!("clap rejects --pr with --issue"),
                     }

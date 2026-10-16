@@ -1,25 +1,16 @@
 use crate::agent::Agent;
 use crate::config::{Config, Kind, Workflow};
-use crate::gh::{gh, output};
-use anyhow::{bail, Context, Result};
-use serde_json::Value;
+use crate::gh::{current_repo, gh, require_primary_checkout};
+use anyhow::{bail, Result};
 use std::{collections::BTreeMap, fs, path::Path};
 
 pub async fn run(root: &Path) -> Result<()> {
-    let git_dir = output("git", &["rev-parse", "--absolute-git-dir"], root).await?;
-    if Path::new(git_dir.trim()) != root.join(".git") {
-        bail!("v0.1 requires a primary git checkout (not a linked worktree)");
-    }
+    require_primary_checkout(root).await?;
     let path = root.join(".github/gh-relay.yml");
     if path.exists() {
         bail!("configuration already exists");
     }
-    let repo: Value =
-        serde_json::from_str(&gh(&["repo", "view", "--json", "nameWithOwner"], root).await?)?;
-    let repo = repo["nameWithOwner"]
-        .as_str()
-        .context("missing repository")?
-        .to_owned();
+    let repo = current_repo(root).await?;
     let labels = [Agent::Codex, Agent::Claude, Agent::Copilot]
         .into_iter()
         .map(|agent| {
@@ -60,6 +51,7 @@ pub async fn create_labels(
     for (label, workflow) in labels {
         let description = match workflow.kind {
             Kind::Review => "Run a local gh-relay review",
+            Kind::Fix => "Address PR feedback with a local gh-relay agent",
             Kind::Research => "Run a local gh-relay issue research",
             Kind::Impl => "Run a local gh-relay issue implementation",
         };

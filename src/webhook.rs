@@ -1,4 +1,3 @@
-use crate::config::Kind;
 use crate::worker::Worker;
 use axum::{extract::State, http::StatusCode, Json};
 use serde_json::Value;
@@ -12,17 +11,17 @@ pub async fn webhook(
     if event["action"] != "labeled" {
         return StatusCode::NO_CONTENT;
     }
-    let (number, expected_kind) = if !event["pull_request"].is_null() {
+    let (number, expect_pr) = if !event["pull_request"].is_null() {
         let Some(number) = event["number"].as_u64() else {
             return StatusCode::BAD_REQUEST;
         };
-        (number, Kind::Review)
+        (number, true)
     } else if !event["issue"].is_null() {
         let Some(number) = event["issue"]["number"].as_u64() else {
             return StatusCode::BAD_REQUEST;
         };
         // Either Research or Impl; checked precisely once the label is resolved below.
-        (number, Kind::Research)
+        (number, false)
     } else {
         return StatusCode::NO_CONTENT;
     };
@@ -38,8 +37,7 @@ pub async fn webhook(
     let Some(workflow) = worker.config.labels.get(label) else {
         return StatusCode::NO_CONTENT;
     };
-    let is_issue_kind = workflow.kind != Kind::Review;
-    if is_issue_kind != (expected_kind != Kind::Review) {
+    if workflow.kind.is_pr() != expect_pr {
         return StatusCode::NO_CONTENT;
     }
     let label = label.to_owned();

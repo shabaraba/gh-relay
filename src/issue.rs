@@ -39,8 +39,8 @@ impl Worker {
             bail!("issue number must be positive");
         }
         let workflow = self.config.labels.get(label).context("unknown label")?;
-        if workflow.kind == Kind::Review {
-            bail!("label is a review workflow; use --pr");
+        if workflow.kind.is_pr() {
+            bail!("label targets a pull request; use --pr");
         }
         let endpoint = format!("repos/{}/issues/{issue}", self.config.repo);
         let info: Value = serde_json::from_str(&gh(&["api", &endpoint], &self.root).await?)?;
@@ -117,7 +117,7 @@ impl Worker {
                 self.implement(workflow, &context, &worktree, post_result)
                     .await
             }
-            Kind::Review => unreachable!(),
+            Kind::Review | Kind::Fix => unreachable!(),
         };
         let cleanup = output(
             "git",

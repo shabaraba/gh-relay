@@ -1,4 +1,4 @@
-use crate::config::Workflow;
+use crate::config::{Kind, Workflow};
 use crate::gh::{gh, output};
 use crate::worker::Worker;
 use anyhow::{bail, Context, Result};
@@ -30,6 +30,17 @@ impl Worker {
                 .any(|l| l["name"] == label)
         {
             return Ok(());
+        }
+        if workflow.kind == Kind::Fix {
+            if !self.author_is_trusted(&info).await? {
+                bail!("PR author lacks write permission; fix requires a trusted author");
+            }
+            let head_repo = info["head"]["repo"]["full_name"]
+                .as_str()
+                .context("missing head repo")?;
+            if head_repo != self.config.repo {
+                bail!("PR head branch lives in a fork; fix cannot push there");
+            }
         }
         let sha = info["head"]["sha"].as_str().context("missing head SHA")?;
         if sha.len() != 40 || !sha.bytes().all(|c| c.is_ascii_hexdigit()) {
@@ -69,7 +80,14 @@ impl Worker {
             &self.root,
         )
         .await?;
-        let result = self.invoke(workflow, pr, sha, &worktree).await;
+        let result = match workflow.kind {
+            Kind::Review => self.review(workflow, label, pr, sha, &worktree).await,
+            Kind::Fix => {
+                self.fix(workflow, label, pr, sha, &worktree, post_result)
+                    .await
+            }
+            Kind::Research | Kind::Impl => unreachable!(),
+        };
         let cleanup = output(
             "git",
             &["worktree", "remove", "--force", worktree.to_str().unwrap()],
@@ -78,17 +96,22 @@ impl Worker {
         .await;
         let result = result?;
         cleanup?;
-        let body = format!("### gh-relay · {label}\n\nCommit: `{sha}`\n\n{result}");
-        if body.len() > 60000 {
+        if result.len() > 60000 {
             bail!("agent response exceeds comment limit; retry manually");
         }
         if post_result {
-            let current: Value = serde_json::from_str(&gh(&["api", &endpoint], &self.root).await?)?;
-            if current["head"]["sha"] != sha || current["state"] != "open" {
-                bail!("PR changed; result not posted");
+            // `fix` already pushed (if any) and re-verified freshness itself
+            // right before doing so; only `review` needs a check here, since
+            // nothing else guards it against commenting on a stale PR.
+            if workflow.kind == Kind::Review {
+                let current: Value =
+                    serde_json::from_str(&gh(&["api", &endpoint], &self.root).await?)?;
+                if current["head"]["sha"] != sha || current["state"] != "open" {
+                    bail!("PR changed; result not posted");
+                }
             }
             let comment_path = self.state().join("comment.md");
-            fs::write(&comment_path, &body)?;
+            fs::write(&comment_path, &result)?;
             let posted = gh(
                 &[
                     "pr",
@@ -106,7 +129,7 @@ impl Worker {
             posted?;
             self.remove_label("pr", pr, label).await;
         } else {
-            println!("{body}");
+            println!("{result}");
         }
         fs::write(
             marker,
@@ -116,7 +139,14 @@ impl Worker {
         )?;
         Ok(())
     }
-    async fn invoke(&self, workflow: &Workflow, pr: u64, sha: &str, cwd: &Path) -> Result<String> {
+    async fn review(
+        &self,
+        workflow: &Workflow,
+        label: &str,
+        pr: u64,
+        sha: &str,
+        cwd: &Path,
+    ) -> Result<String> {
         let diff = gh(
             &["pr", "diff", &pr.to_string(), "--repo", &self.config.repo],
             &self.root,
@@ -129,6 +159,18 @@ impl Worker {
         if prompt.len() > 100_000 {
             bail!("prompt too large for v0.1");
         }
-        crate::agent::invoke(workflow, &prompt, false, cwd).await
+        let result = crate::agent::invoke(workflow, &prompt, false, cwd).await?;
+        Ok(format!(
+            "### gh-relay · {label}\n\nCommit: `{sha}`\n\n{result}"
+        ))
+    }
+    /// Bails if the PR's state or head SHA moved since `sha` was captured.
+    pub(crate) async fn verify_pr_unchanged(&self, pr: u64, sha: &str) -> Result<Value> {
+        let endpoint = format!("repos/{}/pulls/{pr}", self.config.repo);
+        let current: Value = serde_json::from_str(&gh(&["api", &endpoint], &self.root).await?)?;
+        if current["state"] != "open" || current["head"]["sha"] != sha {
+            bail!("PR changed; result not delivered");
+        }
+        Ok(current)
     }
 }
