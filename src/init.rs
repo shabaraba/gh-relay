@@ -1,9 +1,9 @@
 use crate::agent::Agent;
-use crate::config::{Config, Workflow};
+use crate::config::{Config, Kind, Workflow};
 use crate::gh::{gh, output};
 use anyhow::{bail, Context, Result};
 use serde_json::Value;
-use std::{fs, path::Path};
+use std::{collections::BTreeMap, fs, path::Path};
 
 pub async fn run(root: &Path) -> Result<()> {
     let git_dir = output("git", &["rev-parse", "--absolute-git-dir"], root).await?;
@@ -41,26 +41,44 @@ pub async fn run(root: &Path) -> Result<()> {
     };
     fs::create_dir_all(root.join(".github"))?;
     fs::write(path, serde_yaml::to_string(&config)?)?;
-    for label in config.labels.keys() {
+    create_labels(root, &repo, &config.labels).await?;
+    println!(
+        "Created .github/gh-relay.yml and review labels. Inspect and commit the configuration."
+    );
+    Ok(())
+}
+
+/// Creates (or updates, via `--force`) one GitHub label per configured
+/// workflow. Shared by `init` (review labels only, right after scaffolding)
+/// and `setup` (every label in an already-committed configuration, including
+/// hand-added `research`/`impl` ones).
+pub async fn create_labels(
+    root: &Path,
+    repo: &str,
+    labels: &BTreeMap<String, Workflow>,
+) -> Result<()> {
+    for (label, workflow) in labels {
+        let description = match workflow.kind {
+            Kind::Review => "Run a local gh-relay review",
+            Kind::Research => "Run a local gh-relay issue research",
+            Kind::Impl => "Run a local gh-relay issue implementation",
+        };
         gh(
             &[
                 "label",
                 "create",
                 label,
                 "--repo",
-                &repo,
+                repo,
                 "--color",
                 "7057ff",
                 "--description",
-                "Run a local gh-relay review",
+                description,
                 "--force",
             ],
             root,
         )
         .await?;
     }
-    println!(
-        "Created .github/gh-relay.yml and review labels. Inspect and commit the configuration."
-    );
     Ok(())
 }

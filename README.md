@@ -81,7 +81,7 @@ labels:
     prompt: Implement what this issue asks for.
 ```
 
-The label names are arbitrary configuration keys. Agent-specific arguments stay in the Rust adapters. No credentials are stored by gh-relay. Installed CLI versions must support the adapter flags; `doctor` prints versions but does not establish agent authentication or capability compatibility. A failed agent invocation fails the job without posting an empty review or comment. `gh relay init` only scaffolds `review` labels; add `research`/`impl` labels by hand and re-read the execution boundaries below first, since `impl` grants write access.
+The label names are arbitrary configuration keys. Agent-specific arguments stay in the Rust adapters. No credentials are stored by gh-relay. Installed CLI versions must support the adapter flags; `doctor` prints versions but does not establish agent authentication or capability compatibility. A failed agent invocation fails the job without posting an empty review or comment. `gh relay init` only scaffolds `review` labels; add `research`/`impl` labels by hand and re-read the execution boundaries below first, since `impl` grants write access. Run `gh relay setup` afterwards to create (or update) the GitHub label for every workflow currently in `.github/gh-relay.yml`, including the ones you added by hand.
 
 ## Issue-triggered `research` and `impl`
 

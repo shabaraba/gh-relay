@@ -7,6 +7,7 @@ mod init;
 mod issue;
 mod research;
 mod review;
+mod setup;
 mod webhook;
 mod worker;
 
@@ -38,6 +39,8 @@ struct Cli {
 enum Action {
     /// Generate trusted local workflow configuration and GitHub labels.
     Init,
+    /// Create a GitHub label for every workflow in .github/gh-relay.yml.
+    Setup,
     /// Listen locally and forward GitHub webhook events. Ctrl-C stops both.
     Start {
         #[arg(long, default_value_t = 38741)]
@@ -82,6 +85,7 @@ async fn main() -> Result<()> {
             println!("GitHub authenticated. Agent authentication remains managed by each CLI.");
         }
         Action::Init => init::run(&root).await?,
+        Action::Setup => setup::run(&root).await?,
         Action::Start { port, daemon: true } => daemon::start(&root, port).await?,
         Action::Stop => daemon::stop(&root)?,
         Action::Status => {
