@@ -4,9 +4,16 @@ Run local coding agents from GitHub PR and issue labels. Written in Rust; agent 
 
 **v0.1 supports PR review, issue research and issue implementation with Codex, Claude Code and GitHub Copilot CLI.** LSP analysis, service installation and multiple repositories are future work.
 
-## Install from source
+## Install
 
-Install Rust, Git, GitHub CLI and at least one agent CLI. Authenticate `gh` and your selected agent separately.
+Install Git, GitHub CLI and at least one agent CLI. Authenticate `gh` and your selected agent separately.
+
+```sh
+gh extension install shabaraba/gh-relay
+gh extension install cli/gh-webhook
+```
+
+This downloads a precompiled binary for your platform (macOS or Linux, amd64 or arm64) from the latest release; no local Rust toolchain is needed. To build from source instead (e.g. to test an unreleased change):
 
 ```sh
 git clone https://github.com/shabaraba/gh-relay.git
@@ -14,7 +21,6 @@ cd gh-relay
 cargo build --release --locked
 cp target/release/gh-relay ./gh-relay
 gh extension install .
-gh extension install cli/gh-webhook
 ```
 
 Then, in a **primary checkout** of the repository you want to review:
@@ -125,5 +131,7 @@ python3 tests/smoke.py
 python3 tests/issue_smoke.py
 python3 tests/daemon_smoke.py
 ```
+
+Commits on `main` must follow [Semantic Commit Messages](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716) (`feat:`, `fix:`, ...): [release-please](https://github.com/googleapis/release-please) reads them to open a release PR, and merging that PR tags a release and triggers a build that attaches a precompiled binary per platform.
 
 MIT licensed. Rust makes startup and idle overhead small; review latency is mostly agent inference and GitHub/network operations. No performance measurements are claimed.
