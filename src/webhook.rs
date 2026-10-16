@@ -1,8 +1,37 @@
+use crate::gh::gh;
 use crate::worker::Worker;
+use anyhow::{Context, Result};
 use axum::{extract::State, http::StatusCode, Json};
 use serde_json::Value;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use tokio::sync::Mutex;
+
+/// The URL `gh webhook forward` registers on the repo. A daemon killed
+/// without SIGINT skips that extension's own cleanup and leaves this
+/// registration behind (see `main.rs`'s start/stop handling), which then
+/// makes the next `start` fail with "Hook already exists".
+const FORWARDER_URL: &str = "https://webhook-forwarder.github.com/hook";
+
+/// Removes any stale `gh webhook forward` registrations from `repo`. Only
+/// touches hooks pointing at [`FORWARDER_URL`], so hooks created for other
+/// purposes are left alone. Returns the number removed.
+pub async fn clean(repo: &str, root: &Path) -> Result<usize> {
+    let hooks: Vec<Value> =
+        serde_json::from_str(&gh(&["api", &format!("repos/{repo}/hooks")], root).await?)?;
+    let mut removed = 0;
+    for hook in hooks {
+        if hook["config"]["url"].as_str() == Some(FORWARDER_URL) {
+            let id = hook["id"].as_u64().context("missing hook id")?;
+            gh(
+                &["api", "-X", "DELETE", &format!("repos/{repo}/hooks/{id}")],
+                root,
+            )
+            .await?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
 
 pub async fn webhook(
     State(worker): State<Arc<Mutex<Worker>>>,
