@@ -1,0 +1,12 @@
+version: 1
+repo: __REPO__
+labels:
+  codex:review:
+    agent: codex
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+  claude:review:
+    agent: claude
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+  copilot:review:
+    agent: copilot
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.

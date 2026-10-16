@@ -1,0 +1,24 @@
+version: 1
+repo: __REPO__
+labels:
+  codex:review:
+    agent: codex
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+  claude:review:
+    agent: claude
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+  copilot:review:
+    agent: copilot
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+  claude:fix:
+    agent: claude
+    kind: fix
+    prompt: Address the PR's existing review comments and discussion, then push a fix.
+  claude:research:
+    agent: claude
+    kind: research
+    prompt: Investigate this issue against the current codebase and summarize findings, including relevant file paths.
+  claude:impl:
+    agent: claude
+    kind: impl
+    prompt: Implement what this issue asks for.

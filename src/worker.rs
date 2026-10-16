@@ -1,4 +1,4 @@
-use crate::config::{Config, Kind};
+use crate::config::Config;
 use crate::gh::gh;
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -47,12 +47,12 @@ impl Worker {
         post_result: bool,
         deduplicate: bool,
     ) -> Result<()> {
-        match self.config.labels.get(label).context("unknown label")?.kind {
-            Kind::Review => self.run(label, number, post_result, deduplicate).await,
-            Kind::Research | Kind::Impl => {
-                self.run_issue(label, number, post_result, deduplicate)
-                    .await
-            }
+        let kind = self.config.labels.get(label).context("unknown label")?.kind;
+        if kind.is_pr() {
+            self.run(label, number, post_result, deduplicate).await
+        } else {
+            self.run_issue(label, number, post_result, deduplicate)
+                .await
         }
     }
     pub async fn catch_up(&self) -> Result<()> {
@@ -63,7 +63,7 @@ impl Worker {
         for pr in pages.into_iter().flatten() {
             let number = pr["number"].as_u64().context("missing PR number")?;
             for (label, workflow) in &self.config.labels {
-                if workflow.kind != Kind::Review {
+                if !workflow.kind.is_pr() {
                     continue;
                 }
                 if !pr["labels"]
@@ -90,7 +90,7 @@ impl Worker {
             }
             let number = issue["number"].as_u64().context("missing issue number")?;
             for (label, workflow) in &self.config.labels {
-                if workflow.kind == Kind::Review {
+                if workflow.kind.is_pr() {
                     continue;
                 }
                 if !issue["labels"]

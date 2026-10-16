@@ -20,4 +20,6 @@ jobs:
       - run: python3 tests/smoke.py
       - run: python3 tests/issue_smoke.py
       - run: python3 tests/daemon_smoke.py
+      - run: python3 tests/fix_smoke.py
+      - run: python3 tests/template_smoke.py
       - run: cargo build --locked --release

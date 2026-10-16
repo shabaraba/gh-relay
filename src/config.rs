@@ -23,6 +23,9 @@ pub struct Workflow {
 }
 
 /// `Review` runs read-only against a PR diff and posts a PR comment.
+/// `Fix` runs write-capable against an open PR already in this repository (not
+/// a fork): it reads the PR's discussion and review feedback itself, pushes a
+/// commit to the PR's own branch, and posts a PR comment describing the change.
 /// `Research` runs read-only against an issue and posts an issue comment.
 /// `Impl` runs write-capable against an issue, then pushes a branch and opens a draft PR.
 #[derive(Clone, Copy, Default, Deserialize, Serialize, Debug, PartialEq, Eq)]
@@ -30,8 +33,16 @@ pub struct Workflow {
 pub enum Kind {
     #[default]
     Review,
+    Fix,
     Research,
     Impl,
+}
+
+impl Kind {
+    /// `Review` and `Fix` target a pull request (`--pr`); `Research` and `Impl` target an issue (`--issue`).
+    pub fn is_pr(self) -> bool {
+        matches!(self, Kind::Review | Kind::Fix)
+    }
 }
 
 pub fn load(root: &Path) -> Result<Config> {
