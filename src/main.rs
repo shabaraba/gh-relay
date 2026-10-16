@@ -1,5 +1,6 @@
 mod agent;
 mod config;
+mod daemon;
 mod gh;
 mod implement;
 mod init;
@@ -41,7 +42,12 @@ enum Action {
     Start {
         #[arg(long, default_value_t = 38741)]
         port: u16,
+        /// Run detached in the background; use `gh relay stop` to end it.
+        #[arg(long)]
+        daemon: bool,
     },
+    /// Stop a daemon started with `start --daemon`.
+    Stop,
     /// Run one workflow manually; posting is opt-in.
     Run {
         label: String,
@@ -76,6 +82,23 @@ async fn main() -> Result<()> {
             println!("GitHub authenticated. Agent authentication remains managed by each CLI.");
         }
         Action::Init => init::run(&root).await?,
+        Action::Start { port, daemon: true } => daemon::start(&root, port).await?,
+        Action::Stop => daemon::stop(&root)?,
+        Action::Status => {
+            match daemon::status(&root) {
+                Some(pid) => println!("daemon: running (pid {pid})"),
+                None => println!("daemon: not running"),
+            }
+            let state_dir = root.join(".git/gh-relay");
+            if state_dir.is_dir() {
+                for entry in fs::read_dir(state_dir)? {
+                    let entry = entry?;
+                    if entry.path().extension().is_some_and(|e| e == "json") {
+                        println!("{}", fs::read_to_string(entry.path())?);
+                    }
+                }
+            }
+        }
         action => {
             let config = config::load(&root)?;
             let git_dir = output("git", &["rev-parse", "--absolute-git-dir"], &root).await?;
@@ -121,15 +144,7 @@ async fn main() -> Result<()> {
                         (_, Some(_), Some(_)) => unreachable!("clap rejects --pr with --issue"),
                     }
                 }
-                Action::Status => {
-                    for entry in fs::read_dir(worker.state())? {
-                        let entry = entry?;
-                        if entry.path().extension().is_some_and(|e| e == "json") {
-                            println!("{}", fs::read_to_string(entry.path())?);
-                        }
-                    }
-                }
-                Action::Start { port } => {
+                Action::Start { port, daemon: _ } => {
                     let listener =
                         tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
                             .await?;
