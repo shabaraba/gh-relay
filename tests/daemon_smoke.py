@@ -1,6 +1,7 @@
 """Exercise `start --daemon`/`stop`/`status` against a real detached process; no network or AI usage."""
 import os
 from pathlib import Path
+import socket
 import subprocess
 import tempfile
 import time
@@ -127,6 +128,19 @@ else:
         finally:
             self.gh_relay('stop')
         self.assertFalse(self.alive(pid))
+
+    def test_start_picks_a_free_port_when_the_requested_one_is_taken(self):
+        blocker = socket.socket()
+        self.addCleanup(blocker.close)
+        blocker.bind(('127.0.0.1', 0))
+        blocker.listen(1)
+        taken_port = blocker.getsockname()[1]
+        result = self.gh_relay('start', '--daemon', '--port', str(taken_port))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        pid = int(self.pid_file().read_text().strip())
+        self.assertTrue(self.alive(pid))
+        log = (self.repo / '.git/gh-relay/daemon.log').read_text()
+        self.assertIn(f'port {taken_port} was in use; picked', log)
 
     def test_start_surfaces_immediate_child_failure(self):
         (self.bin / 'gh').unlink()
