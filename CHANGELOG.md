@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/shabaraba/gh-relay/compare/v0.1.1...v0.2.0) (2026-10-16)
+
+
+### Features
+
+* add PR fix workflow kind and bundled configuration templates ([#11](https://github.com/shabaraba/gh-relay/issues/11)) ([2741eb0](https://github.com/shabaraba/gh-relay/commit/2741eb063c7750607076e7294e8e43edf23bf379))
+
+
+### Bug Fixes
+
+* send SIGINT (not SIGKILL) to the webhook forwarder on shutdown ([#12](https://github.com/shabaraba/gh-relay/issues/12)) ([80475ad](https://github.com/shabaraba/gh-relay/commit/80475ad13626ec086a326853ace54ef663fafe85))
+
 ## [0.1.1](https://github.com/shabaraba/gh-relay/compare/v0.1.0...v0.1.1) (2026-10-16)
 
 
