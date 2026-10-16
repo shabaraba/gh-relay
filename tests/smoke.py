@@ -166,7 +166,15 @@ print('Actionable test finding')
         comment = self.base/'comment.md'
         self.assertTrue(comment.exists())
         modified = comment.stat().st_mtime_ns
-        self.assertEqual(send(), 202)
+        # The first dispatch's task (now including label removal) may still
+        # hold the worker lock for a moment after the marker file appears.
+        deadline = time.monotonic()+5
+        status = send()
+        while status == 503:
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(.02)
+            status = send()
+        self.assertEqual(status, 202)
         time.sleep(.1)
         self.assertEqual(comment.stat().st_mtime_ns, modified)
 
