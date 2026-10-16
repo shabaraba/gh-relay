@@ -52,6 +52,9 @@ enum Action {
     },
     /// Stop a daemon started with `start --daemon`.
     Stop,
+    /// Remove a stale `gh webhook forward` registration left behind by a
+    /// daemon that didn't shut down via `stop`/Ctrl-C.
+    CleanWebhook,
     /// Run one workflow manually; posting is opt-in.
     Run {
         label: String,
@@ -103,6 +106,11 @@ async fn main() -> Result<()> {
         } => template::apply(&root, &name).await?,
         Action::Start { port, daemon: true } => daemon::start(&root, port).await?,
         Action::Stop => daemon::stop(&root)?,
+        Action::CleanWebhook => {
+            let config = config::load(&root)?;
+            let removed = webhook::clean(&config.repo, &root).await?;
+            println!("removed {removed} stale webhook(s)");
+        }
         Action::Status => {
             match daemon::status(&root) {
                 Some(pid) => println!("daemon: running (pid {pid})"),

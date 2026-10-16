@@ -46,6 +46,8 @@ gh relay stop                    # sends the same signal as Ctrl-C and waits for
 
 `stop` sends SIGINT rather than SIGTERM, since SIGINT is what the worker's Ctrl-C handler listens for; that handler is also what kills the `gh webhook forward` child cleanly, so a plain SIGTERM would leave it running as an orphan. Only one worker (foreground or daemon) may hold a checkout's lock at a time; starting a second daemon while one is already running is rejected before anything is spawned. If the spawned process dies immediately (bad config, port already in use), `start --daemon` reports that failure directly instead of silently leaving a dead pid file.
 
+If a daemon is killed outright (e.g. `kill -9`, a crash, a reboot) instead of stopped with `gh relay stop`/Ctrl-C, `gh webhook forward`'s own cleanup never runs and its webhook registration stays on the repo; the next `start` then fails with "Hook already exists on this repository". Run `gh relay clean-webhook` to remove it, then `start` again.
+
 A recovery scan runs at startup and every five minutes, over both open PRs and open issues. It finds labels applied while the worker was disconnected. Only labels last applied by a collaborator with write/maintain/admin permission are eligible. A local lock prevents two workers sharing the same checkout; successful label/number/content combinations are persisted under `.git/gh-relay/`. The label itself is removed once a result is delivered, so an absent label means the job finished; to request another automatic run at the same content, re-apply the label, or stop the worker and remove the corresponding JSON marker after inspecting `gh relay status`, or run manually.
 
 ```sh
