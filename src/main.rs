@@ -46,7 +46,7 @@ enum Action {
         #[arg(long, default_value_t = 38741)]
         port: u16,
         /// Run detached in the background; use `gh relay stop` to end it.
-        #[arg(long)]
+        #[arg(short, long)]
         daemon: bool,
     },
     /// Stop a daemon started with `start --daemon`.

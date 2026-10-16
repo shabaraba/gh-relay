@@ -28,10 +28,10 @@ gh relay start
 
 Apply `codex:review`, `claude:review` or `copilot:review` to an open PR, or `codex:research`/`codex:impl`-style labels (see below) to an open issue. The worker creates a detached worktree, runs the selected local CLI and delivers the result. GitHub's webhook forwarder is intended for development/testing, not a production delivery service.
 
-`gh relay start` runs in the foreground; Ctrl-C stops the worker and webhook forwarder. Pass `--daemon` to run it detached instead, so it keeps responding after the shell session that started it ends:
+`gh relay start` runs in the foreground; Ctrl-C stops the worker and webhook forwarder. Pass `--daemon`/`-d` to run it detached instead, so it keeps responding after the shell session that started it ends:
 
 ```sh
-gh relay start --daemon          # prints the pid and log path, then returns
+gh relay start -d                # prints the pid and log path, then returns
 gh relay status                  # daemon: running (pid N), plus persisted markers
 gh relay stop                    # sends the same signal as Ctrl-C and waits for it to exit
 ```
