@@ -19,4 +19,5 @@ jobs:
       - run: cargo build --locked
       - run: python3 tests/smoke.py
       - run: python3 tests/issue_smoke.py
+      - run: python3 tests/daemon_smoke.py
       - run: cargo build --locked --release

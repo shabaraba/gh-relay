@@ -26,7 +26,17 @@ gh relay init
 gh relay start
 ```
 
-Apply `codex:review`, `claude:review` or `copilot:review` to an open PR, or `codex:research`/`codex:impl`-style labels (see below) to an open issue. The foreground process creates a detached worktree, runs the selected local CLI and delivers the result. Ctrl-C stops the worker and webhook forwarder. GitHub's webhook forwarder is intended for development/testing, not a production delivery service. Keep your Mac awake for immediate responses.
+Apply `codex:review`, `claude:review` or `copilot:review` to an open PR, or `codex:research`/`codex:impl`-style labels (see below) to an open issue. The worker creates a detached worktree, runs the selected local CLI and delivers the result. GitHub's webhook forwarder is intended for development/testing, not a production delivery service.
+
+`gh relay start` runs in the foreground; Ctrl-C stops the worker and webhook forwarder. Pass `--daemon`/`-d` to run it detached instead, so it keeps responding after the shell session that started it ends:
+
+```sh
+gh relay start -d                # prints the pid and log path, then returns
+gh relay status                  # daemon: running (pid N), plus persisted markers
+gh relay stop                    # sends the same signal as Ctrl-C and waits for it to exit
+```
+
+`stop` sends SIGINT rather than SIGTERM, since SIGINT is what the worker's Ctrl-C handler listens for; that handler is also what kills the `gh webhook forward` child cleanly, so a plain SIGTERM would leave it running as an orphan. Only one worker (foreground or daemon) may hold a checkout's lock at a time; starting a second daemon while one is already running is rejected before anything is spawned. If the spawned process dies immediately (bad config, port already in use), `start --daemon` reports that failure directly instead of silently leaving a dead pid file.
 
 A recovery scan runs at startup and every five minutes, over both open PRs and open issues. It finds labels applied while the worker was disconnected. Only labels last applied by a collaborator with write/maintain/admin permission are eligible. A local lock prevents two workers sharing the same checkout; successful label/number/content combinations are persisted under `.git/gh-relay/`. The label itself is removed once a result is delivered, so an absent label means the job finished; to request another automatic run at the same content, re-apply the label, or stop the worker and remove the corresponding JSON marker after inspecting `gh relay status`, or run manually.
 
@@ -38,7 +48,7 @@ gh relay run codex:impl --issue 45 --post   # pushes a branch and opens a draft 
 gh relay status
 ```
 
-`--directory /path/to/repo` works with every command. Run one process per repository, with distinct `start --port` values. `status` requires the worker to be stopped in v0.1.
+`--directory /path/to/repo` works with every command. Run one process per repository, with distinct `start --port` values.
 
 ## Configuration
 
@@ -71,7 +81,7 @@ labels:
     prompt: Implement what this issue asks for.
 ```
 
-The label names are arbitrary configuration keys. Agent-specific arguments stay in the Rust adapters. No credentials are stored by gh-relay. Installed CLI versions must support the adapter flags; `doctor` prints versions but does not establish agent authentication or capability compatibility. A failed agent invocation fails the job without posting an empty review or comment. `gh relay init` only scaffolds `review` labels; add `research`/`impl` labels by hand and re-read the execution boundaries below first, since `impl` grants write access.
+The label names are arbitrary configuration keys. Agent-specific arguments stay in the Rust adapters. No credentials are stored by gh-relay. Installed CLI versions must support the adapter flags; `doctor` prints versions but does not establish agent authentication or capability compatibility. A failed agent invocation fails the job without posting an empty review or comment. `gh relay init` only scaffolds `review` labels; add `research`/`impl` labels by hand and re-read the execution boundaries below first, since `impl` grants write access. Run `gh relay setup` afterwards to create (or update) the GitHub label for every workflow currently in `.github/gh-relay.yml`, including the ones you added by hand.
 
 ## Issue-triggered `research` and `impl`
 
@@ -113,6 +123,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test --locked
 python3 tests/smoke.py
 python3 tests/issue_smoke.py
+python3 tests/daemon_smoke.py
 ```
 
 MIT licensed. Rust makes startup and idle overhead small; review latency is mostly agent inference and GitHub/network operations. No performance measurements are claimed.
