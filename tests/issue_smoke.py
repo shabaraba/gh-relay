@@ -80,6 +80,8 @@ elif a[:2] == ["pr", "create"]:
     Path(os.environ["TEST_PR_BODY"]).write_text(Path(path).read_text())
     Path(os.environ["TEST_PR_FLAGS"]).write_text(json.dumps(a))
     print("https://github.test/test/repo/pull/99")
+elif a[:2] == ["issue", "edit"]:
+    Path(os.environ["TEST_REMOVE_LABEL"]).write_text(json.dumps(a))
 else:
     sys.exit(4)
 ''')
@@ -105,6 +107,7 @@ else:
             TEST_PR_BODY=str(self.base / 'pr-body.md'),
             TEST_PR_FLAGS=str(self.base / 'pr-flags.json'),
             TEST_BIN=str(self.bin),
+            TEST_REMOVE_LABEL=str(self.base / 'remove-label.json'),
         )
 
     def fake(self, name, body):
@@ -127,9 +130,13 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Research finding', result.stdout)
         self.assertFalse((self.base / 'comment.md').exists())
+        self.assertFalse((self.base / 'remove-label.json').exists())
         result = self.run_label('codex:research', '--post')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Research finding', (self.base / 'comment.md').read_text())
+        remove_label = json.loads((self.base / 'remove-label.json').read_text())
+        self.assertEqual(remove_label[:3], ['issue', 'edit', '1'])
+        self.assertIn('codex:research', remove_label)
 
     def test_impl_preview_does_not_push_or_open_pr(self):
         self.env['TEST_LABEL'] = 'codex:impl'
@@ -137,6 +144,7 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('preview, not pushed', result.stdout)
         self.assertFalse((self.base / 'pr-body.md').exists())
+        self.assertFalse((self.base / 'remove-label.json').exists())
         remotes = subprocess.run(['git', 'ls-remote', 'origin'], cwd=self.repo, capture_output=True, text=True).stdout
         self.assertNotIn('gh-relay/issue-1', remotes)
 
@@ -147,6 +155,9 @@ else:
         pr_body = (self.base / 'pr-body.md').read_text()
         self.assertTrue(pr_body.startswith('#1\n'))
         self.assertNotIn('Closes #', pr_body)
+        remove_label = json.loads((self.base / 'remove-label.json').read_text())
+        self.assertEqual(remove_label[:3], ['issue', 'edit', '1'])
+        self.assertIn('codex:impl', remove_label)
         flags = json.loads((self.base / 'pr-flags.json').read_text())
         self.assertIn('--draft', flags)
         remotes = subprocess.run(['git', 'ls-remote', 'origin'], cwd=self.repo, capture_output=True, text=True).stdout

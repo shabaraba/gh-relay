@@ -135,6 +135,7 @@ impl Worker {
             // Kind::Impl already delivered its result by pushing a branch and
             // opening a draft PR inside `implement` (gated on `post_result` there too);
             // nothing further to post.
+            self.remove_label("issue", issue, label).await;
         } else {
             println!("{result}");
         }

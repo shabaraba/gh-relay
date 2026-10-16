@@ -55,6 +55,8 @@ elif a[:2] == ['pr','diff']:
     print('diff --git a/example.txt b/example.txt\\n-base\\n+changed')
 elif a[:2] == ['pr','comment']:
     Path(os.environ['TEST_COMMENT']).write_text(Path(a[a.index('--body-file')+1]).read_text())
+elif a[:2] == ['pr','edit']:
+    Path(os.environ['TEST_REMOVE_LABEL']).write_text(json.dumps(a))
 else:
     sys.exit(4)
 ''')
@@ -73,7 +75,7 @@ if os.environ.get('TEST_STALE'):
     gh.write_text(text)
 print('Actionable test finding')
 ''')
-        self.env = dict(os.environ, PATH=str(self.bin)+os.pathsep+os.environ['PATH'], TEST_SHA=self.sha, TEST_COMMENT=str(self.base/'comment.md'), TEST_BIN=str(self.bin))
+        self.env = dict(os.environ, PATH=str(self.bin)+os.pathsep+os.environ['PATH'], TEST_SHA=self.sha, TEST_COMMENT=str(self.base/'comment.md'), TEST_BIN=str(self.bin), TEST_REMOVE_LABEL=str(self.base/'remove-label.json'))
 
     def fake(self, name, body):
         p = self.bin / name
@@ -91,10 +93,14 @@ print('Actionable test finding')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Actionable test finding', result.stdout)
         self.assertFalse((self.base/'comment.md').exists())
+        self.assertFalse((self.base/'remove-label.json').exists())
         result = self.run_review('--post')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(self.sha, (self.base/'comment.md').read_text())
         self.assertEqual(self.git('worktree', 'list').count('\n'), 1)
+        remove_label = json.loads((self.base/'remove-label.json').read_text())
+        self.assertEqual(remove_label[:3], ['pr', 'edit', '1'])
+        self.assertIn('codex:review', remove_label)
 
     def test_failed_agent_does_not_post_and_cleans_up(self):
         self.env['TEST_FAIL'] = '1'
@@ -103,6 +109,7 @@ print('Actionable test finding')
         self.assertFalse((self.base/'comment.md').exists())
         self.assertEqual(self.git('worktree', 'list').count('\n'), 1)
         self.assertFalse(list((self.repo/'.git/gh-relay').glob('*.json')))
+        self.assertFalse((self.base/'remove-label.json').exists())
 
     def test_changed_head_does_not_post(self):
         self.env['TEST_STALE'] = '1'
@@ -110,6 +117,7 @@ print('Actionable test finding')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('PR changed', result.stderr)
         self.assertFalse((self.base/'comment.md').exists())
+        self.assertFalse((self.base/'remove-label.json').exists())
 
     def test_webhook_authorization_and_duplicate_delivery(self):
         with socket.socket() as sock:
