@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/shabaraba/gh-relay/compare/v0.1.0...v0.1.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* match gh extension's os-arch asset naming convention ([#9](https://github.com/shabaraba/gh-relay/issues/9)) ([dd842e4](https://github.com/shabaraba/gh-relay/commit/dd842e4375aa46dc576438397f9faf0a3843dfb5))
+
 ## 0.1.0 (2026-10-16)
 
 
