@@ -1,0 +1,14 @@
+# Changelog
+
+## 0.1.0 (2026-10-16)
+
+
+### Features
+
+* add detached daemon mode (start --daemon, stop, status) ([#6](https://github.com/shabaraba/gh-relay/issues/6)) ([7280e05](https://github.com/shabaraba/gh-relay/commit/7280e059560ebf0600a97bf994f7e9dda3d6052d))
+* add issue-triggered research and impl labels ([7d56082](https://github.com/shabaraba/gh-relay/commit/7d5608252c119a2b1ba71c9a26d74c25da055dbc))
+* add issue-triggered research and impl labels ([5aaec8a](https://github.com/shabaraba/gh-relay/commit/5aaec8af9079d8e6e1f05600ffc735704710ff75))
+* add release-please and precompiled binary upload ([#7](https://github.com/shabaraba/gh-relay/issues/7)) ([affa163](https://github.com/shabaraba/gh-relay/commit/affa163ce687e1190e2796db5723aecf2e63f5ba))
+* add Rust label-driven local agent review runner ([bf50c99](https://github.com/shabaraba/gh-relay/commit/bf50c993e1c332ced93e9fe485db709034310407))
+* let agents pull context themselves, remove labels on delivery ([e3adb3c](https://github.com/shabaraba/gh-relay/commit/e3adb3c9c6320516682d761348d63eb17345b4fa))
+* let agents pull context themselves, remove labels on delivery ([666d0f0](https://github.com/shabaraba/gh-relay/commit/666d0f0b35cbd44598c428ad3283eb0d3965fe12))
