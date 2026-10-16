@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/shabaraba/gh-relay/compare/v0.2.0...v0.3.0) (2026-10-16)
+
+
+### Features
+
+* add clean-webhook command for stale gh webhook forward registrations ([#15](https://github.com/shabaraba/gh-relay/issues/15)) ([fce2834](https://github.com/shabaraba/gh-relay/commit/fce28346744456585eb55cb69522201c90810980))
+* pick the next free port automatically when start's default is taken ([#14](https://github.com/shabaraba/gh-relay/issues/14)) ([edd95fd](https://github.com/shabaraba/gh-relay/commit/edd95fde9fabc9031a6c79c4b92f30f61e43f77a))
+
 ## [0.2.0](https://github.com/shabaraba/gh-relay/compare/v0.1.1...v0.2.0) (2026-10-16)
 
 
