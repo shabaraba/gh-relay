@@ -81,6 +81,21 @@ enum TemplateAction {
     Use { name: String },
 }
 
+/// Binds `preferred`, or the first free port after it (up to 19 higher), so
+/// that running several repos' daemons on one machine doesn't require each
+/// to be given a distinct `--port` by hand.
+async fn bind_available_port(preferred: u16) -> Result<(tokio::net::TcpListener, u16)> {
+    let highest = preferred.saturating_add(19);
+    for port in preferred..=highest {
+        match tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).await {
+            Ok(listener) => return Ok((listener, port)),
+            Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => continue,
+            Err(e) => return Err(e.into()),
+        }
+    }
+    bail!("no free port in {preferred}..={highest}; pass --port to pick a different range");
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -168,11 +183,15 @@ async fn main() -> Result<()> {
                         (_, Some(_), Some(_)) => unreachable!("clap rejects --pr with --issue"),
                     }
                 }
-                Action::Start { port, daemon: _ } => {
-                    let listener =
-                        tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
-                            .await?;
+                Action::Start {
+                    port: requested_port,
+                    daemon: _,
+                } => {
+                    let (listener, port) = bind_available_port(requested_port).await?;
                     let url = format!("http://127.0.0.1:{port}/webhook");
+                    if port != requested_port {
+                        println!("port {requested_port} was in use; picked {port} instead.");
+                    }
                     let mut forwarder = Command::new("gh")
                         .args([
                             "webhook",

@@ -58,7 +58,7 @@ gh relay run codex:impl --issue 45 --post   # pushes a branch and opens a draft 
 gh relay status
 ```
 
-`--directory /path/to/repo` works with every command. Run one process per repository, with distinct `start --port` values.
+`--directory /path/to/repo` works with every command. Run one process per repository; if `--port`'s default (or whatever you pass) is already taken by another repo's process, `start` picks the next free port itself and prints which one it bound.
 
 ## Configuration
 
