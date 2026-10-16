@@ -18,6 +18,27 @@ impl Worker {
     pub fn worktrees(&self) -> PathBuf {
         self.root.join(".gh-relay-worktrees")
     }
+    /// Removes `label` from the PR/issue after a result was successfully delivered,
+    /// so its absence signals completion. `subject` is `"pr"` or `"issue"`.
+    /// Failure is logged, not propagated: delivery already succeeded.
+    pub async fn remove_label(&self, subject: &str, number: u64, label: &str) {
+        if let Err(e) = gh(
+            &[
+                subject,
+                "edit",
+                &number.to_string(),
+                "--repo",
+                &self.config.repo,
+                "--remove-label",
+                label,
+            ],
+            &self.root,
+        )
+        .await
+        {
+            eprintln!("warning: failed to remove label {label} from {subject} #{number}: {e:#}");
+        }
+    }
     /// Routes to the PR-review flow or the issue-triggered flow based on the label's `kind`.
     pub async fn dispatch(
         &self,
