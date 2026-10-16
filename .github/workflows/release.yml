@@ -1,0 +1,57 @@
+name: Release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: rust
+
+  # Attaches a precompiled binary per platform to the release release-please
+  # just created, named so `gh extension install` can find it without a
+  # local Rust toolchain.
+  upload-binaries:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            asset: gh-relay_darwin_amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            asset: gh-relay_darwin_arm64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset: gh-relay_linux_amd64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            asset: gh-relay_linux_arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install aarch64 cross linker
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Build
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      - run: cp target/${{ matrix.target }}/release/gh-relay ${{ matrix.asset }}
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ matrix.asset }} --clobber --repo ${{ github.repository }}
