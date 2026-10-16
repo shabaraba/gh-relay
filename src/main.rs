@@ -191,6 +191,17 @@ async fn main() -> Result<()> {
                         _ = tokio::signal::ctrl_c() => {}
                     }
                     recovery.abort();
+                    // SIGKILL (what `Child::kill` sends) skips `gh webhook
+                    // forward`'s own cleanup, leaving its webhook
+                    // registration on the repo and breaking the next
+                    // `start`. Give it a chance to exit on SIGINT first.
+                    if let Some(pid) = forwarder.id() {
+                        let _ = std::process::Command::new("kill")
+                            .args(["-INT", &pid.to_string()])
+                            .status();
+                        let _ =
+                            tokio::time::timeout(Duration::from_secs(5), forwarder.wait()).await;
+                    }
                     let _ = forwarder.kill().await;
                 }
                 _ => unreachable!(),
