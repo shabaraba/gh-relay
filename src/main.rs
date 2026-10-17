@@ -78,7 +78,16 @@ enum TemplateAction {
     /// List bundled templates.
     List,
     /// Write .github/gh-relay.yml from a template and create its labels.
-    Use { name: String },
+    Use {
+        name: String,
+        /// Replace an existing configuration instead of refusing to run.
+        #[arg(long, conflicts_with = "merge")]
+        overwrite: bool,
+        /// Add this template's labels to an existing configuration instead
+        /// of refusing to run; labels already present are left unchanged.
+        #[arg(long, conflicts_with = "overwrite")]
+        merge: bool,
+    },
 }
 
 /// Binds `preferred`, or the first free port after it (up to 19 higher), so
@@ -117,8 +126,21 @@ async fn main() -> Result<()> {
             action: TemplateAction::List,
         } => template::list(),
         Action::Template {
-            action: TemplateAction::Use { name },
-        } => template::apply(&root, &name).await?,
+            action:
+                TemplateAction::Use {
+                    name,
+                    overwrite,
+                    merge,
+                },
+        } => {
+            let mode = match (overwrite, merge) {
+                (true, false) => template::ApplyMode::Overwrite,
+                (false, true) => template::ApplyMode::Merge,
+                (false, false) => template::ApplyMode::Refuse,
+                (true, true) => unreachable!("clap rejects --overwrite with --merge"),
+            };
+            template::apply(&root, &name, mode).await?
+        }
         Action::Start { port, daemon: true } => daemon::start(&root, port).await?,
         Action::Stop => daemon::stop(&root)?,
         Action::CleanWebhook => {

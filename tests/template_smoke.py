@@ -84,6 +84,33 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('already exists', result.stderr)
 
+    def test_use_overwrite_replaces_existing_config(self):
+        (self.repo / '.github').mkdir()
+        (self.repo / '.github/gh-relay.yml').write_text('version: 1\nrepo: test/repo\nlabels:\n  custom:label:\n    agent: codex\n    prompt: Review\n')
+        result = self.gh_relay('template', 'use', 'review', '--overwrite')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        config = (self.repo / '.github/gh-relay.yml').read_text()
+        self.assertNotIn('custom:label', config)
+        self.assertIn('claude:review', config)
+
+    def test_use_merge_keeps_existing_labels_and_adds_new_ones(self):
+        (self.repo / '.github').mkdir()
+        (self.repo / '.github/gh-relay.yml').write_text(
+            'version: 1\nrepo: test/repo\nlabels:\n  claude:review:\n    agent: codex\n    prompt: Existing\n'
+        )
+        result = self.gh_relay('template', 'use', 'fix', '--merge')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        config = (self.repo / '.github/gh-relay.yml').read_text()
+        self.assertIn('Existing', config)
+        self.assertIn('claude:fix', config)
+        labels = (self.base / 'labels.txt').read_text().splitlines()
+        self.assertIn('claude:fix', labels)
+
+    def test_use_rejects_overwrite_and_merge_together(self):
+        result = self.gh_relay('template', 'use', 'review', '--overwrite', '--merge')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.repo / '.github/gh-relay.yml').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

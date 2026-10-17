@@ -137,7 +137,7 @@ Worktrees live under `.gh-relay-worktrees/` in the primary checkout, not under `
 
 ## Templates
 
-`gh relay template list` prints the bundled templates and `gh relay template use <name>` writes `.github/gh-relay.yml` from one and creates its labels, the same way `init` does for its review-only default. It refuses to run outside a primary checkout or over an existing configuration, matching `init`.
+`gh relay template list` prints the bundled templates and `gh relay template use <name>` writes `.github/gh-relay.yml` from one and creates its labels, the same way `init` does for its review-only default. It refuses to run outside a primary checkout, and, matching `init`, over an existing configuration — unless `--overwrite` (replace it entirely) or `--merge` (add the template's labels, leaving any already-configured label, hand-edited or from a prior template, untouched) is passed.
 
 - `review`: `codex:review`, `claude:review`, `copilot:review` — the same labels `init` scaffolds.
 - `fix`: `claude:review` and `claude:fix` — review a PR, then address that feedback and push a fix to it.
