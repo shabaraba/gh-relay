@@ -2,8 +2,7 @@ use crate::daemon;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
-    env,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
 };
 
