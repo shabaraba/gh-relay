@@ -33,7 +33,7 @@ pub fn status(root: &Path) -> Option<u32> {
 /// Runs `kill <signal> <pid>`, suppressing its own stdout/stderr: callers
 /// only care about the exit status, and "No such process" on a liveness or
 /// already-exited check is expected, not an error to surface.
-fn signal(pid: u32, signal: &str) -> std::io::Result<std::process::ExitStatus> {
+pub(crate) fn signal(pid: u32, signal: &str) -> std::io::Result<std::process::ExitStatus> {
     std::process::Command::new("kill")
         .args([signal, &pid.to_string()])
         .stdout(Stdio::null())

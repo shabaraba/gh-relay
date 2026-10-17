@@ -6,6 +6,7 @@ mod gh;
 mod implement;
 mod init;
 mod issue;
+mod list;
 mod research;
 mod review;
 mod setup;
@@ -71,6 +72,8 @@ enum Action {
     Doctor,
     /// Show persisted successful runs.
     Status,
+    /// List repositories running `gh relay start` on this machine, with pid and webhook port.
+    List,
 }
 
 #[derive(Subcommand)]
@@ -141,6 +144,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
+        Action::List => list::run()?,
         action => {
             let config = config::load(&root)?;
             gh::require_primary_checkout(&root).await?;
@@ -208,6 +212,8 @@ async fn main() -> Result<()> {
                         .kill_on_drop(true)
                         .spawn()
                         .context("install cli/gh-webhook first")?;
+                    let _instance =
+                        list::Instance::register(&worker.root, &worker.config.repo, port);
                     let worker = Arc::new(Mutex::new(worker));
                     let recovery_worker = worker.clone();
                     let recovery = tokio::spawn(async move {
