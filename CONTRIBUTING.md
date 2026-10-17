@@ -30,6 +30,7 @@ issue and a maintainer will pick it up.
   python3 tests/daemon_smoke.py
   python3 tests/fix_smoke.py
   python3 tests/template_smoke.py
+  python3 tests/list_smoke.py
   ```
 
 - Commits on `main` must follow [Semantic Commit Messages](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716)
