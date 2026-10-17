@@ -1,25 +1,33 @@
 version: 1
 repo: shabaraba/gh-relay
 labels:
+  claude:fix:
+    agent: claude
+    prompt: Address the PR's existing review comments and discussion, then push a fix.
+    model: null
+    kind: fix
+  claude:impl:
+    agent: claude
+    prompt: Implement what this issue asks for, keeping the change minimal and consistent with the existing code style.
+    model: null
+    kind: impl
+  claude:research:
+    agent: claude
+    prompt: Investigate this issue against the current codebase and summarize findings with file paths and lines.
+    model: null
+    kind: research
   claude:review:
     agent: claude
     prompt: Review for bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
     model: null
+    kind: review
   codex:review:
     agent: codex
     prompt: Review for bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
     model: null
+    kind: review
   copilot:review:
     agent: copilot
     prompt: Review for bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
     model: null
-  claude:research:
-    agent: claude
-    kind: research
-    prompt: Investigate this issue against the current codebase and summarize findings with file paths and lines.
-    model: null
-  claude:impl:
-    agent: claude
-    kind: impl
-    prompt: Implement what this issue asks for, keeping the change minimal and consistent with the existing code style.
-    model: null
+    kind: review
