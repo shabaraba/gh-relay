@@ -46,6 +46,8 @@ gh relay stop                    # sends the same signal as Ctrl-C and waits for
 
 `stop` sends SIGINT rather than SIGTERM, since SIGINT is what the worker's Ctrl-C handler listens for; that handler is also what kills the `gh webhook forward` child cleanly, so a plain SIGTERM would leave it running as an orphan. Only one worker (foreground or daemon) may hold a checkout's lock at a time; starting a second daemon while one is already running is rejected before anything is spawned. If the spawned process dies immediately (bad config, port already in use), `start --daemon` reports that failure directly instead of silently leaving a dead pid file.
 
+`gh relay list` shows every `start` (foreground or daemon) currently running on this machine, across all repositories, with its repository, pid and webhook port; run it from anywhere, not just a repository checkout. Each running process registers itself under `~/.gh-relay/instances` and deregisters on a clean shutdown; an entry left behind by a process that was killed outright (e.g. `kill -9`) is detected and dropped the next time `list` runs, rather than shown as still running.
+
 If a daemon is killed outright (e.g. `kill -9`, a crash, a reboot) instead of stopped with `gh relay stop`/Ctrl-C, `gh webhook forward`'s own cleanup never runs and its webhook registration stays on the repo; the next `start` then fails with "Hook already exists on this repository". Run `gh relay clean-webhook` to remove it, then `start` again.
 
 A recovery scan runs at startup and every five minutes, over both open PRs and open issues. It finds labels applied while the worker was disconnected. Only labels last applied by a collaborator with write/maintain/admin permission are eligible. A local lock prevents two workers sharing the same checkout; successful label/number/content combinations are persisted under `.git/gh-relay/`. The label itself is removed once a result is delivered, so an absent label means the job finished; to request another automatic run at the same content, re-apply the label, or stop the worker and remove the corresponding JSON marker after inspecting `gh relay status`, or run manually.
@@ -156,6 +158,7 @@ python3 tests/issue_smoke.py
 python3 tests/daemon_smoke.py
 python3 tests/fix_smoke.py
 python3 tests/template_smoke.py
+python3 tests/list_smoke.py
 ```
 
 Commits on `main` must follow [Semantic Commit Messages](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716) (`feat:`, `fix:`, ...): [release-please](https://github.com/googleapis/release-please) reads them to open a release PR, and merging that PR tags a release and triggers a build that attaches a precompiled binary per platform.
