@@ -8,26 +8,26 @@ labels:
     kind: fix
   claude:impl:
     agent: claude
-    prompt: Implement what this issue asks for, keeping the change minimal and consistent with the existing code style.
+    prompt: Implement what this issue asks for.
     model: null
     kind: impl
   claude:research:
     agent: claude
-    prompt: Investigate this issue against the current codebase and summarize findings with file paths and lines.
+    prompt: Investigate this issue against the current codebase and summarize findings, including relevant file paths.
     model: null
     kind: research
   claude:review:
     agent: claude
-    prompt: Review for bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
     model: null
     kind: review
   codex:review:
     agent: codex
-    prompt: Review for bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
     model: null
     kind: review
   copilot:review:
     agent: copilot
-    prompt: Review for bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
+    prompt: Review bugs, regressions and unnecessary complexity. Explain user-facing impact and cite file paths and lines. Report only actionable findings.
     model: null
     kind: review
