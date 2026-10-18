@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/shabaraba/gh-relay/compare/v0.3.0...v0.4.0) (2026-10-18)
+
+
+### Features
+
+* add --overwrite and --merge to template use ([#20](https://github.com/shabaraba/gh-relay/issues/20)) ([d1be643](https://github.com/shabaraba/gh-relay/commit/d1be6437bcf464ebd248501c23990c43d91f3b35))
+
 ## [0.3.0](https://github.com/shabaraba/gh-relay/compare/v0.2.0...v0.3.0) (2026-10-16)
 
 
