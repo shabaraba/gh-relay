@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import tempfile
 import time
@@ -189,7 +190,10 @@ else:
             [str(BINARY), '--directory', str(self.repo), 'start', '--port', str(port)],
             env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-        self.addCleanup(lambda: (process.terminate(), process.wait(timeout=5)) if process.poll() is None else None)
+        # SIGTERM has no handler in the worker and would skip straight past
+        # the Ctrl-C cleanup path, leaving `gh webhook forward` orphaned and
+        # the repo's worktree mid-teardown when the tmpdir is removed.
+        self.addCleanup(lambda: (process.send_signal(signal.SIGINT), process.wait(timeout=5)) if process.poll() is None else None)
         deadline = time.monotonic() + 5
         while True:
             try:
